@@ -1,0 +1,1116 @@
+---
+title: "final project"
+author: "Samantha Daoud"
+date: "10/20/2021"
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r,echo=FALSE,message=FALSE,warning=FALSE,results='hide'}
+# reqiured libraries
+library(essurvey)
+library(tidyverse)
+library(dplyr)
+library(knitr)
+library(nnet)
+library(broom)
+library(modelr)
+library(countrycode)
+library(ggplot2)
+library(stargazer)
+library(gapminder)
+library(Matrix)
+library(data.table)
+library(plyr)
+library(Hmisc)
+library(haven)
+theme_set(theme_classic())
+
+set_email("samda859@student.liu.se")
+```
+
+```{r}
+# import rounds data from 2006-2018
+rounds <- read.csv("/Users/samo/Desktop/ess data/two crisis/ESS1-2006-2018/ESS1-9e01_1.csv")
+rounds$year <- 2000 + 2 * rounds$essround
+rounds$country <- countrycode(rounds$cntry, "iso2c", "country.name")
+
+
+### Aggregate the data at the country-year level
+agg<-rounds[c("imbgeco", "country", "year", "dweight")]
+# measuring the weight of dependent variable
+ggplot(data = agg, aes(x = dweight, y = imbgeco)) +
+    geom_point(alpha = 0.1, aes(color= cntry_name))
+# Aggregate the mean importance of religion for each country in each year
+attach(agg)
+agg<-aggregate(imbgeco, by=list(country, year), FUN=mean, na.rm=TRUE)
+detach(agg)
+agg <- melt(agg,
+                   id = c("Group.1", "Group.2"), na.rm=TRUE)
+colnames(agg) <- c("country", "year","variable", "value")
+agg <- subset(agg, select = -c(variable) )
+
+
+# Plot
+ggplot(agg) +
+  geom_line(aes(x=year, y=value, colour=country, group=country)) +
+  theme(axis.text.x = element_text(angle = 75, hjust = 1)) + 
+  scale_x_continuous(breaks = seq(from= 2002,to=2018, by =2 ))  +
+  facet_wrap(~ country) + 
+  theme_bw() + 
+  theme(panel.grid.major.x = element_blank(),
+       panel.grid.minor.x = element_blank(),
+       panel.grid.major.y = element_blank(),
+       panel.grid.minor.y = element_blank()) + 
+  theme(axis.text.x = element_text(colour="grey20", size=12, angle=90, hjust=.5, vjust=.5), axis.text.y = element_text(colour="grey20", size=12),
+          text=element_text(size=16)) +
+  theme(legend.position = "none") +
+    labs(x="Year", y="Immigration bad or good for country's economy	",
+       title="Fig.2 Attitudes towards immigrants in Spain, 2006- 2018")
+
+# save plot
+ggsave("attitudes towards immigrants-Spain, 2006- 2018.png", my_plot, width=15, height=10)
+
+```
+
+```{r}
+# unemployment rate in spain
+# Unemployment rates represent unemployed persons as a percentage of the labour force. The labour force is the total number of people employed and unemployed. Unemployed persons comprise persons aged 15 to 74 who were: a. without work during the reference week, b. currently available for work, i.e. were available for paid employment or self-employment before the end of the two weeks following the reference week, c. actively seeking work, i.e. had taken specific steps in the four weeks period ending with the reference week to seek paid employment or self-employment or who found a job to start later, i.e. within a period of, at most, three months. This table does not only show unemployment rates but also unemployed in 1000 and as % of the total population.
+unemp_rate <- read.csv("/Users/samo/Desktop/ess data/two crisis/estat_tps00203_filtered_en.csv")
+library(dplyr)
+unemp_rate <- unemp_rate %>% filter(geo == "SE")
+# rename country
+unemp_rate[unemp_rate == "SE"]  <- "Spain"
+
+unemp_rate<- unemp_rate[c("TIME_PERIOD", "geo", "OBS_VALUE")]
+colnames(unemp_rate) <- c("year", "country","value")
+# tabling
+unemp_rate %>%
+ kbl(caption = "Unemployment, total (% oftotal labor force)- spain")  %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width = T)
+
+
+# Plot
+ggplot(unemp_rate) +
+  geom_line(aes(x=year, y=value)) +
+  theme(axis.text.x = element_text(angle = 75, hjust = 1)) + 
+    scale_x_continuous(breaks = seq(from= 2006,to=2020, by =2 ))  +
+  theme_bw() + 
+  theme(panel.grid.major.x = element_blank(),
+       panel.grid.minor.x = element_blank(),
+       panel.grid.major.y = element_blank(),
+       panel.grid.minor.y = element_blank()) + 
+  theme(axis.text.x = element_text(colour="grey20", size=12, angle=90, hjust=.5, vjust=.5), axis.text.y = element_text(colour="grey20", size=12),
+          text=element_text(size=16)) +
+  theme(legend.position = "none") +
+    labs(x="Year", y="unemployment rate	",
+       title= "Fig.3 Unemployment rate/Spain (yearly %), 2009- 2018",
+ caption = "source: World Bank Data")
+
+ ggsave("Unemployment Rates-Spain, 2006- 2018.png", my_plot, width=15, height=10)
+
+```
+
+```{r}
+# unemployment rate during refugee crisis only
+unemp_rate <- unemp_rate[!unemp_rate$year == "2009", ]
+unemp_rate <- unemp_rate[!unemp_rate$year == "2010", ]
+unemp_rate <- unemp_rate[!unemp_rate$year == "2011", ]
+
+ggplot(unemp_rate) +
+  geom_line(aes(x=year, y=value)) +
+  theme(axis.text.x = element_text(angle = 75, hjust = 1)) + 
+      scale_y_continuous(breaks = seq(5,10,5))+
+    scale_x_continuous(breaks = seq(from= 2012,to=2018, by =2 ))  +
+  theme_bw() + 
+  theme(panel.grid.major.x = element_blank(),
+       panel.grid.minor.x = element_blank(),
+       panel.grid.major.y = element_blank(),
+       panel.grid.minor.y = element_blank()) + 
+  theme(axis.text.x = element_text(colour="grey20", size=12, angle=90, hjust=.5, vjust=.5), axis.text.y = element_text(colour="grey20", size=12),
+          text=element_text(size=16)) +
+  theme(legend.position = "none") +
+    labs(x="Year", y="unemployment rate	",
+       title= "Fig.3 Unemployment rate/Spain (yearly %), 2012- 2018",
+ caption = "source: World Bank Data")
+
+```
+
+
+```{r}
+# GDP
+GDP_per_capita <- read.csv("/Users/samo/Downloads/Data_Extract_From_World_Development_Indicators/2af2116c-1dde-4303-9158-4c785733cfbd_Data.csv")
+
+colnames(GDP_per_capita) <- c("series.name", "series.code", "country.name", "country.code", "2006", "2007", "2008", "2009","2010", "2011","2012","2013","2014","2015","2016","2017","2018")
+
+GDP_per_capita<-GDP_per_capita[c("country.name", "2006", "2007", "2008", "2009","2010", "2011","2012","2013","2014","2015","2016","2017","2018")]
+
+GDP_per_capita <- GDP_per_capita %>% filter(!is.na(2006),!is.na(2007),!is.na(2008),!is.na(2009),!is.na(2010), !is.na(2011), !is.na(2012),!is.na(2013),!is.na(2014), !is.na(2015), !is.na(2016), !is.na(2017), !is.na(2018))
+
+GDP_per_capita <-GDP_per_capita[-c(2, 3, 4, 5,6), ]
+
+# tabling data
+GDP_per_capita %>%
+ kbl(caption = "GDP per capita growth (annual %)-spain")  %>%
+  kable_material(c("striped", "hover"))
+
+library(tidyverse)
+# combining all years to one column
+GDP_per_capita <- GDP_per_capita %>%gather("year", "cases", "2006":"2018")
+
+# aggregate
+attach(GDP_per_capita)
+GDP_per_capita<-aggregate(cases, by=list(country.name, year), FUN=mean, na.rm=TRUE)
+detach(GDP_per_capita)
+GDP_per_capita <- melt(GDP_per_capita,
+                   id = c("Group.1", "Group.2"), na.rm=TRUE)
+colnames(GDP_per_capita) <- c("country", "year","variable","value")
+GDP_per_capita <- subset(GDP_per_capita, select = -c(variable) )
+
+GDP_per_capita$Added_Column <- "GDP"
+colnames(GDP_per_capita) <- c("country","year","value", "type")
+
+# Plot
+ggplot(GDP_per_capita,aes(x=year, y=value)) +
+  geom_point()+
+  geom_line() +
+  labs(x="Year", y="GDP rate	",
+       title="GDP per capita growth (annual %), 2006- 2018",
+       caption = "World Bank Data")
+```
+
+```{r}
+# unemployment rate during refugee crisis only
+GDP_per_capita <- GDP_per_capita[!GDP_per_capita$year == "2006", ]
+GDP_per_capita <- GDP_per_capita[!GDP_per_capita$year == "2007", ]
+GDP_per_capita <- GDP_per_capita[!GDP_per_capita$year == "2008", ]
+GDP_per_capita <- GDP_per_capita[!GDP_per_capita$year == "2009", ]
+GDP_per_capita <- GDP_per_capita[!GDP_per_capita$year == "2010", ]
+GDP_per_capita <- GDP_per_capita[!GDP_per_capita$year == "2011", ]
+
+ggplot(GDP_per_capita,aes(x=year, y=value)) +
+  geom_point()+
+  geom_line() +
+  labs(x="Year", y="GDP rate	",
+       title="GDP per capita growth (annual %) Spain, 2012- 2018",
+       caption = "World Bank Data")
+
+```
+
+```{r}
+all.agg <- all.agg %>% filter(country == "Spain")
+all.agg$Added_Column <- "changing attitudes"
+unemp_rate$Added_Column <- "unemployment rates"
+colnames(unemp_rate) <- c("year", "country","value", "type")
+colnames(all.agg) <- c("country","year" ,"value", "type")
+
+mseries <- rbind(all.agg, unemp_rate)
+mseries2 <- rbind(all.agg, unemp_rate, GDP_per_capita)
+# plot data
+library(ggplot2)
+# changing attitudes + unemployment rates
+my_plot <- (GDP_per_capita, 
+       aes(x=year, y= value, color = type, group = type)) + 
+  geom_line(size=1) +
+    scale_y_continuous(breaks = seq(-5,10,0.5))+
+  scale_x_discrete(breaks = seq(from= 2006,to=2018, by =2 ))  +
+  labs(title = "Fig.4 GDP per Capita- Spain",
+       subtitle = "2006- 2018",
+       caption = "source: World Bank Data",
+       y = "") 
+
+ ggsave("GDP per Capita- Spain.png", my_plot, width=15, height=10)
+
+# changing attitudes vs. unemployment rates vs. GDP
+
+ggplot(mseries, 
+       aes(x=year, y= value, color = type, group = type)) + 
+  geom_line(size=1) +
+  scale_y_continuous(breaks = seq(-5,10,0.5))+
+  scale_x_continuous(breaks = seq(from= 2006,to=2018, by =2 ))  +
+  labs(title = "NASDAQ Closing Prices",
+       subtitle = "Jan - Aug 2018",
+       caption = "source: Yahoo Finance",
+       y = "") 
+```
+
+```{r}
+# import selected rounds
+ess2006 <- import_rounds(3)
+ess2008 <- import_rounds(4)
+ess2010 <- import_rounds(5)
+ess2012 <- import_rounds(6)
+ess2014 <- import_rounds(7)
+ess2016 <- import_rounds(8)
+ess2018 <- import_rounds(9)
+```
+
+```{r}
+ess2006 <- recode_missings(ess2006)
+ess2008 <- recode_missings(ess2008)
+ess2010 <- recode_missings(ess2010)
+ess2012 <- recode_missings(ess2012)
+ess2014 <- recode_missings(ess2014)
+ess2016 <- recode_missings(ess2016)
+ess2018 <- recode_missings(ess2018)
+
+ess2006$cntry_name <- countrycode(ess2006$cntry, "iso2c", "country.name")
+ess2008$cntry_name <- countrycode(ess2008$cntry, "iso2c", "country.name")
+ess2010$cntry_name <- countrycode(ess2010$cntry, "iso2c", "country.name")
+ess2012$cntry_name <- countrycode(ess2012$cntry, "iso2c", "country.name")
+ess2014$cntry_name <- countrycode(ess2014$cntry, "iso2c", "country.name")
+ess2016$cntry_name <- countrycode(ess2016$cntry, "iso2c", "country.name")
+ess2018$cntry_name <- countrycode(ess2018$cntry, "iso2c", "country.name")
+```
+
+```{r}
+# remove na values from specified variables in all rounds:
+ess2006 <- ess2006%>% filter(!is.na(tvpol),!is.na(tvtot),!is.na(tvpol),!is.na(imbgeco),!is.na(imwbcnt),!is.na(imdfetn),!is.na(impcntr),!is.na(stfgov))
+ess2008 <- ess2008%>% filter(!is.na(tvpol),!is.na(tvtot),!is.na(tvpol),!is.na(imbgeco),!is.na(imwbcnt),!is.na(imdfetn),!is.na(impcntr),!is.na(stfgov) )
+ess2010 <- ess2010%>% filter(!is.na(tvpol),!is.na(tvtot),!is.na(tvpol),!is.na(imbgeco),!is.na(imwbcnt),!is.na(imdfetn),!is.na(impcntr),!is.na(stfgov) )
+ess2012 <- ess2012%>% filter(!is.na(tvpol),!is.na(tvtot),!is.na(tvpol),!is.na(imbgeco),!is.na(imwbcnt),!is.na(imdfetn),!is.na(impcntr),!is.na(stfgov) )
+ess2014 <- ess2014%>% filter(!is.na(tvpol),!is.na(tvtot),!is.na(imbgeco),!is.na(imwbcnt),!is.na(imdfetn),!is.na(impcntr), !is.na(stfgov))
+ess2016 <- ess2016%>% filter(!is.na(nwspol),!is.na(imbgeco),!is.na(imwbcnt),!is.na(imdfetn),!is.na(impcntr), !is.na(netusoft), !is.na(stfgov))
+ess2018 <- ess2018%>% filter(!is.na(nwspol),!is.na(imbgeco),!is.na(imwbcnt),!is.na(imdfetn),!is.na(impcntr), !is.na(netusoft), !is.na(stfgov))
+
+```
+
+```{r}
+#data frames for years: 2006,2008,2010,2012, 2014,2016,2018
+df_2006 <- rbind(ess2006 %>% filter(cntry_name == c("Spain")))
+df_2008 <- rbind(ess2008 %>% filter(cntry_name == c("Spain")))
+df_2010 <- rbind(ess2010 %>% filter(cntry_name == c("Spain")))
+
+```
+
+```{r}
+# round 2006
+df_2006 <-  df_2006 %>% mutate(media = as_factor(tvpol),
+                               media = fct_recode(media,
+                           "0" = "No time at all" ,
+                          "1" = "Less than 0,5 hour" ,
+                           "2" = "0,5 hour to 1 hour" ,
+                           "3" = "More than 1 hour, up to 1,5 hours" ,
+                         "4" = "More than 1,5 hours, up to 2 hours" ,
+                         "5" = "More than 2 hours, up to 2,5 hours" ,
+                         "6" = "More than 2,5 hours, up to 3 hours" ,
+                           "7" = "More than 3 hours"),
+         media = as.integer(media))
+
+df_2006 <- df_2006 %>%
+  mutate(
+         gender = as.integer(gndr),
+                  female = as.integer(gndr == 2),
+         age = as.integer(agea),
+         media_exposure = as.integer(media),
+         immigrants_affect_country = as.integer(imwbcnt),
+         culture_effect_byimmig = as.integer(imueclt),
+         immigrants_allowance_out_EU = as.integer(impcntr),
+         diff_race_immigrants_allow = as.integer(imdfetn),
+         attitude_twrds_immigrants = as.integer(imbgeco),
+         income = as.integer(hinctnt),
+         unemployed = as.integer(uempla),
+         left_right = as.integer(lrscale),
+         household_work = as.factor(hswrk),
+         country = cntry_name ,
+         safe_secure = as.integer(impsafe),
+         female = as.integer(gndr == 2),
+         paid_work = as.integer(pdwrk),
+         trust_polparties = as.integer(trstprt),
+         trust_UN = as.integer(trstun),
+         Social_trust = as.integer(ppltrst),
+         high_trustinparlimant = as.integer(trstprl),
+         marital_Status = as.integer(maritala),
+         happy = as.integer(happy),
+         life_satisfaction = as.integer(stflife),
+         economy_satisfaction = as.integer(stfeco),
+         stfgov = as.integer(stfgov),
+                  high_govsatisfied = as.factor(stfgov >= 5 & stfgov <= 10))
+
+
+df_2006 <-  df_2006 %>% dplyr::select(gender, age,immigrants_affect_country, culture_effect_byimmig, immigrants_allowance_out_EU, diff_race_immigrants_allow, attitude_twrds_immigrants,income, left_right, household_work, country, safe_secure, media_exposure, female, paid_work, trust_polparties, trust_UN, Social_trust, high_trustinparlimant, unemployed,  marital_Status,happy,life_satisfaction,economy_satisfaction,high_govsatisfied,dweight)
+```
+
+```{r}
+df_2008 <-  df_2008 %>% mutate(media = as_factor(tvpol),
+                               media = fct_recode(media,
+                           "0" = "No time at all" ,
+                          "1" = "Less than 0,5 hour" ,
+                           "2" = "0,5 hour to 1 hour" ,
+                           "3" = "More than 1 hour, up to 1,5 hours" ,
+                         "4" = "More than 1,5 hours, up to 2 hours" ,
+                         "5" = "More than 2 hours, up to 2,5 hours" ,
+                         "6" = "More than 2,5 hours, up to 3 hours" ,
+                           "7" = "More than 3 hours"),
+         media = as.integer(media))
+
+df_2008 <- df_2008 %>%
+  mutate(
+         gender = as.integer(gndr),
+                           female = as.integer(gndr == 2),
+         age = as.integer(agea),
+         media_exposure = as.integer(media),
+         immigrants_affect_country = as.integer(imwbcnt),
+         culture_effect_byimmig = as.integer(imueclt),
+         immigrants_allowance_out_EU = as.integer(impcntr),
+         diff_race_immigrants_allow = as.integer(imdfetn),
+         attitude_twrds_immigrants = as.integer(imbgeco),
+         income = as.integer(hinctnta),
+         unemployed = as.integer(uempla),
+         left_right = as.integer(lrscale),
+         household_work = as.factor(hswrk),
+         country = cntry_name ,
+         safe_secure = as.integer(impsafe),
+         female = as.integer(gndr == 2),
+         paid_work = as.integer(pdwrk),
+         trust_polparties = as.integer(trstprt),
+         trust_UN = as.integer(trstun),
+         Social_trust = as.integer(ppltrst),
+         high_trustinparlimant = as.integer(trstprl),
+         marital_Status = as.integer(maritala),
+         happy = as.integer(happy),
+         life_satisfaction = as.integer(stflife),
+         economy_satisfaction = as.integer(stfeco),
+         stfgov = as.integer(stfgov),
+                  high_govsatisfied = as.factor(stfgov >= 5 & stfgov <= 10))
+
+
+df_2008 <-  df_2008 %>% dplyr::select(gender, age,immigrants_affect_country, culture_effect_byimmig, immigrants_allowance_out_EU, diff_race_immigrants_allow, attitude_twrds_immigrants,income, left_right, household_work, country, safe_secure, media_exposure, female, paid_work, trust_polparties, trust_UN, Social_trust, high_trustinparlimant, unemployed,  marital_Status,happy,life_satisfaction,economy_satisfaction,high_govsatisfied,dweight)
+```
+
+```{r}
+df_2010 <-  df_2010 %>% mutate(media = as_factor(tvpol),
+                               media = fct_recode(media,
+                           "0" = "No time at all" ,
+                          "1" = "Less than 0,5 hour" ,
+                           "2" = "0,5 hour to 1 hour" ,
+                           "3" = "More than 1 hour, up to 1,5 hours" ,
+                         "4" = "More than 1,5 hours, up to 2 hours" ,
+                         "5" = "More than 2 hours, up to 2,5 hours" ,
+                         "6" = "More than 2,5 hours, up to 3 hours" ,
+                           "7" = "More than 3 hours"),
+         media = as.integer(media))
+
+df_2010 <- df_2010 %>%
+  mutate(
+         gender = as.integer(gndr),
+                           female = as.integer(gndr == 2),
+         age = as.integer(agea),
+         media_exposure = as.integer(media),
+         immigrants_affect_country = as.integer(imwbcnt),
+         culture_effect_byimmig = as.integer(imueclt),
+         immigrants_allowance_out_EU = as.integer(impcntr),
+         diff_race_immigrants_allow = as.integer(imdfetn),
+         attitude_twrds_immigrants = as.integer(imbgeco),
+         income = as.integer(hinctnta),
+         unemployed = as.integer(uempla),
+         left_right = as.integer(lrscale),
+         household_work = as.factor(hswrk),
+         country = cntry_name ,
+         safe_secure = as.integer(impsafe),
+         female = as.integer(gndr == 2),
+         paid_work = as.integer(pdwrk),
+         trust_polparties = as.integer(trstprt),
+         trust_UN = as.integer(trstun),
+         Social_trust = as.integer(ppltrst),
+         high_trustinparlimant = as.integer(trstprl),
+         marital_Status = as.integer(maritalb),
+         happy = as.integer(happy),
+         life_satisfaction = as.integer(stflife),
+         economy_satisfaction = as.integer(stfeco),
+         stfgov = as.integer(stfgov),
+                  high_govsatisfied = as.factor(stfgov >= 5 & stfgov <= 10))
+
+
+df_2010 <-  df_2010 %>% dplyr::select(gender, age,immigrants_affect_country, culture_effect_byimmig, immigrants_allowance_out_EU, diff_race_immigrants_allow, attitude_twrds_immigrants,income, left_right, household_work, country, safe_secure, media_exposure, female, paid_work, trust_polparties, trust_UN, Social_trust, high_trustinparlimant, unemployed,  marital_Status,happy,life_satisfaction,economy_satisfaction,high_govsatisfied,dweight)
+```
+
+```{r}
+df_2012 <- rbind(ess2012 %>% filter(cntry_name == c("Spain")))
+df_2014 <- rbind(ess2014 %>% filter(cntry_name == c("Spain")))
+df_2016 <- rbind(ess2016 %>% filter(cntry_name == c("Spain")))
+df_2018 <- rbind(ess2018 %>% filter(cntry_name == c("Spain")))
+```
+
+```{r}
+df_2012 <-  df_2012 %>% mutate(media = as_factor(tvpol),
+                               media = fct_recode(media,
+                           "0" = "No time at all" ,
+                          "1" = "Less than 0,5 hour" ,
+                           "2" = "0,5 hour to 1 hour" ,
+                           "3" = "More than 1 hour, up to 1,5 hours" ,
+                         "4" = "More than 1,5 hours, up to 2 hours" ,
+                         "5" = "More than 2 hours, up to 2,5 hours" ,
+                         "6" = "More than 2,5 hours, up to 3 hours" ,
+                           "7" = "More than 3 hours"),
+         media = as.integer(media))
+
+df_2012 <- df_2012 %>%
+  mutate(
+         gender = as.integer(gndr),
+                           male = as.integer(gndr == 1),
+         age = as.integer(agea),
+         media_exposure = as.integer(media),
+         immigrants_affect_country = as.integer(imwbcnt),
+         culture_effect_byimmig = as.integer(imueclt),
+         immigrants_allowance_out_EU = as.integer(impcntr),
+         diff_race_immigrants_allow = as.integer(imdfetn),
+         attitude_twrds_immigrants = as.integer(imbgeco),
+         income = as.integer(hinctnta),
+         unemployed = as.integer(uempla),
+         left_right = as.integer(lrscale),
+         household_work = as.factor(hswrk),
+         country = cntry_name ,
+         safe_secure = as.integer(impsafe),
+         paid_work = as.integer(pdwrk),
+         trust_polparties = as.integer(trstprt),
+         trust_UN = as.integer(trstun),
+         Social_trust = as.integer(ppltrst),
+         trstprl = as.integer(trstprl),
+         high_trustinparlimant = as.factor(trstprl >= 5 & trstprl <= 10),
+         marital_Status = as.integer(maritalb),
+         happy = as.integer(happy),
+         life_satisfaction = as.integer(stflife),
+         economy_satisfaction = as.integer(stfeco),
+         stfgov = as.integer(stfgov),
+         edulvlb = as.integer(edulvlb),
+         high_edu = as.factor(edulvlb >= 500 & edulvlb <= 800))
+
+
+
+df_2012 <-  df_2012 %>% dplyr::select(male, age,immigrants_affect_country, culture_effect_byimmig, immigrants_allowance_out_EU, diff_race_immigrants_allow, attitude_twrds_immigrants,income, left_right, household_work, country, safe_secure, media_exposure, paid_work, trust_polparties, trust_UN, Social_trust, high_trustinparlimant, unemployed, high_edu, marital_Status,happy,life_satisfaction,economy_satisfaction,dweight)
+```
+
+```{r}
+df_2014 <-  df_2014 %>% mutate(media = as_factor(tvpol),
+                               media = fct_recode(media,
+                           "0" = "No time at all" ,
+                          "1" = "Less than 0,5 hour" ,
+                           "2" = "0,5 hour to 1 hour" ,
+                           "3" = "More than 1 hour, up to 1,5 hours" ,
+                         "4" = "More than 1,5 hours, up to 2 hours" ,
+                         "5" = "More than 2 hours, up to 2,5 hours" ,
+                         "6" = "More than 2,5 hours, up to 3 hours" ,
+                           "7" = "More than 3 hours"),
+         media = as.integer(media))
+
+df_2014 <- df_2014 %>%
+  mutate(
+         gender = as.integer(gndr),
+                           male = as.integer(gndr == 1),
+         age = as.integer(agea),
+         media_exposure = as.integer(media),
+         immigrants_affect_country = as.integer(imwbcnt),
+         culture_effect_byimmig = as.integer(imueclt),
+         immigrants_allowance_out_EU = as.integer(impcntr),
+         diff_race_immigrants_allow = as.integer(imdfetn),
+         attitude_twrds_immigrants = as.integer(imbgeco),
+         income = as.integer(hinctnta),
+         unemployed = as.integer(uempla),
+         left_right = as.integer(lrscale),
+         household_work = as.factor(hswrk),
+         country = cntry_name ,
+         safe_secure = as.integer(impsafe),
+         paid_work = as.integer(pdwrk),
+         trust_polparties = as.integer(trstprt),
+         trust_UN = as.integer(trstun),
+         Social_trust = as.integer(ppltrst),
+         trstprl = as.integer(trstprl),
+         high_trustinparlimant = as.factor(trstprl >= 5 & trstprl <= 10),
+         marital_Status = as.integer(maritalb),
+         happy = as.integer(happy),
+         life_satisfaction = as.integer(stflife),
+         economy_satisfaction = as.integer(stfeco),
+         stfgov = as.integer(stfgov),
+         edulvlb = as.integer(edulvlb),
+         high_edu = as.factor(edulvlb >= 500 & edulvlb <= 800))
+
+
+
+df_2014 <-  df_2014 %>% dplyr::select(male, age,immigrants_affect_country, culture_effect_byimmig, immigrants_allowance_out_EU, diff_race_immigrants_allow, attitude_twrds_immigrants,income, left_right, household_work, country, safe_secure, media_exposure, paid_work, trust_polparties, trust_UN, Social_trust, high_trustinparlimant, unemployed, high_edu, marital_Status,happy,life_satisfaction,economy_satisfaction,dweight)
+```
+
+```{r,echo=FALSE,message=FALSE,warning=FALSE,results='hide'}
+# round 2016
+
+df_2016$media <- ifelse( test = df_2016$nwspol == 0 ,yes =  c("No time at all"), 
+              ifelse(test = df_2016$nwspol > 0 & 
+              df_2016$nwspol < 30, yes = c("Less than 0,5 hour"),
+              ifelse(test = df_2016$nwspol >= 30  & 
+              df_2016$nwspol < 60,yes = c("0,5 hour to 1 hour"),
+              ifelse(test = df_2016$nwspol >= 60 & df_2016$nwspol < 90,yes = c("More than 1 hour, up to 1,5 hours"),
+              ifelse(test = df_2016$nwspol >= 90 & df_2016$nwspol < 120 ,yes = c("More than 1,5 hours, up to 2 hours" ),
+              ifelse(test = df_2016$nwspol >= 120 & 
+df_2016$nwspol < 150 ,yes= c("More than 2 hours, up to 2,5 hours"),
+              ifelse(test = df_2016$nwspol >= 150 &
+   df_2016$nwspol < 180 ,yes= c("More than 2,5 hours, up to 3 hours"),                  ifelse(test = df_2016$nwspol >= 180 ,yes= c("More than 3 hours"), no = 0))))))))
+
+df_2016 <-  df_2016 %>% mutate(media = as_factor(media),
+                               media = fct_recode(media,
+                           "0" = "No time at all" ,
+                          "1" = "Less than 0,5 hour" ,
+                           "2" = "0,5 hour to 1 hour" ,
+                           "3" = "More than 1 hour, up to 1,5 hours" ,
+                         "4" = "More than 1,5 hours, up to 2 hours" ,
+                         "5" = "More than 2 hours, up to 2,5 hours" ,
+                         "6" = "More than 2,5 hours, up to 3 hours" ,
+                           "7" = "More than 3 hours"),
+         media = as.integer(media))
+
+df_2016 <-  df_2016 %>%
+  mutate(gender = as.integer(gndr),
+         age = as.integer(agea),
+         media_exposure = as.integer(media),
+         immigrants_affect_country = as.integer(imwbcnt),
+         culture_effect_byimmig = as.integer(imueclt),
+         immigrants_allowance_out_EU = as.integer(impcntr),
+         diff_race_immigrants_allow = as.integer(imdfetn),
+         attitude_twrds_immigrants = as.integer(imbgeco),
+         income = as.integer(hinctnta),
+         unemployed = as.integer(uempla),
+         left_right = as.integer(lrscale),
+         household_work = as.factor(hswrk),
+         country = cntry_name ,
+         safe_secure = as.integer(impsafe),
+        male = as.integer(gender == 1),
+         paid_work = as.integer(pdwrk),
+         trust_polparties = as.integer(trstprt),
+         trust_UN = as.integer(trstun),
+         Social_trust = as.integer(ppltrst),
+         trstprl = as.integer(trstprl),
+         high_trustinparlimant = as.factor(trstprl >= 5 & trstprl <= 10),
+         marital_Status = as.integer(maritalb),
+         happy = as.integer(happy),
+         life_satisfaction = as.integer(stflife),
+         economy_satisfaction = as.integer(stfeco),
+         stfgov = as.integer(stfgov),
+         edulvlb = as.integer(edulvlb),
+         high_edu = as.factor(edulvlb >= 500 & edulvlb <= 800))
+
+df_2016 <-  df_2016 %>% dplyr::select(male, age,immigrants_affect_country, culture_effect_byimmig, immigrants_allowance_out_EU, diff_race_immigrants_allow, attitude_twrds_immigrants,income, left_right, household_work, country, safe_secure, media_exposure, paid_work, trust_polparties, trust_UN, Social_trust, high_edu, high_trustinparlimant, unemployed, high_edu, marital_Status,happy,life_satisfaction,economy_satisfaction,dweight)
+```
+
+```{r}
+# round 2018
+df_2018$media <- ifelse( test = df_2018$nwspol == 0 ,yes =  c("No time at all"), 
+              ifelse(test = df_2018$nwspol > 0 & 
+              df_2018$nwspol < 30, yes = c("Less than 0,5 hour"),
+              ifelse(test = df_2018$nwspol >= 30  & 
+              df_2018$nwspol < 60,yes = c("0,5 hour to 1 hour"),
+              ifelse(test = df_2018$nwspol >= 60 & df_2018$nwspol < 90,yes = c("More than 1 hour, up to 1,5 hours"),
+              ifelse(test = df_2018$nwspol >= 90 & df_2018$nwspol < 120 ,yes = c("More than 1,5 hours, up to 2 hours" ),
+              ifelse(test = df_2018$nwspol >= 120 & 
+df_2018$nwspol < 150 ,yes= c("More than 2 hours, up to 2,5 hours"),
+              ifelse(test = df_2018$nwspol >= 150 &
+   df_2018$nwspol < 180 ,yes= c("More than 2,5 hours, up to 3 hours"),                  ifelse(test = df_2018$nwspol >= 180 ,yes= c("More than 3 hours"), no = 0))))))))
+
+df_2018 <-  df_2018 %>% mutate(media = as_factor(media),
+                               media = fct_recode(media,
+                           "0" = "No time at all" ,
+                          "1" = "Less than 0,5 hour" ,
+                           "2" = "0,5 hour to 1 hour" ,
+                           "3" = "More than 1 hour, up to 1,5 hours" ,
+                         "4" = "More than 1,5 hours, up to 2 hours" ,
+                         "5" = "More than 2 hours, up to 2,5 hours" ,
+                         "6" = "More than 2,5 hours, up to 3 hours" ,
+                           "7" = "More than 3 hours"),
+         media = as.integer(media))
+
+df_2018 <-  df_2018 %>% 
+  mutate(gender = as.integer(gndr),
+         age = as.integer(agea),
+         media_exposure = as.integer(media),
+         immigrants_affect_country = as.integer(imwbcnt),
+         culture_effect_byimmig = as.integer(imueclt),
+         immigrants_allowance_out_EU = as.integer(impcntr),
+         diff_race_immigrants_allow = as.integer(imdfetn),
+         attitude_twrds_immigrants = as.integer(imbgeco),
+         income = as.integer(hinctnta),
+         unemployed = as.integer(uempla),
+         left_right = as.integer(lrscale),
+         household_work = as.factor(hswrk),
+         country = cntry_name ,
+         safe_secure = as.integer(impsafe),
+        male = as.integer(gender == 1),
+         paid_work = as.integer(pdwrk),
+         trust_polparties = as.integer(trstprt),
+         trust_UN = as.integer(trstun),
+         Social_trust = as.integer(ppltrst),
+         trstprl = as.integer(trstprl),
+         high_trustinparlimant = as.factor(trstprl >= 5 & trstprl <= 10),
+         marital_Status = as.integer(maritalb),
+         happy = as.integer(happy),
+         life_satisfaction = as.integer(stflife),
+         economy_satisfaction = as.integer(stfeco),
+         stfgov = as.integer(stfgov),
+         edulvlb = as.integer(edulvlb),
+         high_edu = as.factor(edulvlb >= 500 & edulvlb <= 800))
+
+df_2018 <-  df_2018 %>% dplyr::select(high_edu, male, age,immigrants_affect_country, culture_effect_byimmig, immigrants_allowance_out_EU, diff_race_immigrants_allow, attitude_twrds_immigrants,income, left_right, household_work, country, safe_secure, media_exposure, paid_work, trust_polparties, trust_UN, Social_trust, high_trustinparlimant, unemployed, high_edu, marital_Status,happy,life_satisfaction,economy_satisfaction,dweight)
+```
+
+```{r}
+# creating simple linear model for each round and country:
+model2006_sp <- lm(attitude_twrds_immigrants ~ media_exposure, 
+weights = dweight, data = df_2006 %>% filter(country == c("Spain")))
+model2008_sp <- lm(attitude_twrds_immigrants ~ media_exposure, 
+weights = dweight, data = df_2008 %>% filter(country == c("Spain")))
+model2010_sp <- lm(attitude_twrds_immigrants ~ media_exposure, 
+weights = dweight, data = df_2010 %>% filter(country == c("Spain")))
+model2012_sp <- lm(attitude_twrds_immigrants  ~ media_exposure, 
+weights = dweight, data = df_2012 %>% filter(country == c("Spain")))
+model2014_sp <- lm(attitude_twrds_immigrants  ~ media_exposure, 
+weights = dweight, data = df_2014 %>% filter(country == c("Spain")))
+model2016_sp <- lm(attitude_twrds_immigrants  ~ media_exposure, 
+weights = dweight, data = df_2016 %>% filter(country == c("Spain")))
+model2018_sp <- lm(attitude_twrds_immigrants  ~ media_exposure, 
+weights = dweight, data = df_2018 %>% filter(country == c("Spain")))
+
+```
+```{r}
+# create table for models:
+stargazer(list(model2006_sp,model2008_sp,model2010_sp,model2012_sp, model2014_sp, model2016_sp, model2018_sp),
+          header=F,
+          keep.stat = c("n","adj.rsq"),
+          title="simple OLS Regression Model in Spain",
+          notes=c("Data from European Social Survey"), 
+          dep.var.labels=c("attitudes towards immigrants"), 
+          column.labels = c("2006","2008","2010", "2012","2014","2016","2018"),
+          type = "text",
+          align=TRUE)
+```
+
+```{r,echo=FALSE,message=FALSE,warning=FALSE,results='hide'}
+# data frames for Spain in each year:
+# Spain:
+Spain2006 <- df_2006 %>% filter(country == c("Spain")) %>% mutate(year = "2006")
+Spain2008 <- df_2008 %>% filter(country == c("Spain")) %>% mutate(year = "2008")
+Spain2010 <- df_2010 %>% filter(country == c("Spain")) %>% mutate(year = "2010")
+
+Spain2012 <- df_2012 %>% filter(country == c("Spain")) %>% mutate(year = "2012")
+Spain2014 <- df_2014 %>% filter(country == c("Spain")) %>% mutate(year = "2014")
+Spain2016 <- df_2016 %>% filter(country == c("Spain")) %>% mutate(year = "2016")
+Spain2018 <- df_2018 %>% filter(country == c("Spain")) %>% mutate(year = "2018")
+```
+
+```{r}
+## Multiple Linear modelsvfor Spain in all rounds:
+mm_Spain2006 <- lm(attitude_twrds_immigrants ~ media_exposure + I(age^2) + male + paid_work + immigrants_allowance_out_EU + income + left_right + safe_secure + trust_polparties + high_trustinparlimant + happy  + economy_satisfaction  +  media_exposure*income + media_exposure*happy + media_exposure*economy_satisfaction ,na.action = na.exclude, weights = dweight, data = Spain2006)
+
+mm_Spain2008 <- lm(attitude_twrds_immigrants ~ media_exposure + I(age^2) + female + paid_work + immigrants_allowance_out_EU + income + left_right + safe_secure + trust_polparties  + Social_trust + high_trustinparlimant + happy  + economy_satisfaction  +  media_exposure*income + media_exposure*happy + media_exposure*trust_polparties,na.action = na.exclude, weights = dweight, data = Spain2008)
+
+mm_Spain2010 <- lm(attitude_twrds_immigrants ~ media_exposure + I(age^2) + female + paid_work + immigrants_allowance_out_EU + income + left_right + safe_secure + trust_polparties + Social_trust + high_trustinparlimant + happy  + economy_satisfaction  +  media_exposure*income + media_exposure*happy + media_exposure*trust_polparties,na.action = na.exclude, weights = dweight, data = Spain2010)
+
+mm_Spain2012 <- lm(attitude_twrds_immigrants ~ media_exposure + I(age^2) + male + paid_work + immigrants_allowance_out_EU + income + left_right   + high_trustinparlimant + happy  + economy_satisfaction  +  media_exposure*income + media_exposure*happy + media_exposure*economy_satisfaction ,na.action = na.exclude, weights = dweight, data = Spain2012)
+
+mm_Spain2014 <- lm(attitude_twrds_immigrants ~ media_exposure + I(age^2) + male + paid_work + immigrants_allowance_out_EU + income + left_right   + high_trustinparlimant + happy  + economy_satisfaction  +  media_exposure*income + media_exposure*happy + media_exposure*economy_satisfaction ,na.action = na.exclude, weights = dweight, data = Spain2014)
+
+mm_Spain2016 <- lm(attitude_twrds_immigrants ~ media_exposure + I(age^2) + male + paid_work + immigrants_allowance_out_EU + income + left_right  + high_trustinparlimant + happy  + economy_satisfaction  +  media_exposure*income + media_exposure*happy + media_exposure*economy_satisfaction ,na.action = na.exclude, weights = dweight, data = Spain2016)
+
+mm_Spain2018 <- lm(attitude_twrds_immigrants ~ media_exposure + I(age^2) + male + paid_work + immigrants_allowance_out_EU + income + left_right   + high_trustinparlimant + happy  + economy_satisfaction  +  media_exposure*income + media_exposure*happy + media_exposure*economy_satisfaction ,na.action = na.exclude, weights = dweight, data = Spain2018)
+```
+
+```{r}
+#create table for models:
+stargazer(list(mm_Spain2006,mm_Spain2008,mm_Spain2010),
+          header=F,
+          keep.stat = c("n","adj.rsq"),
+          title="Multiple OLS Regression Model in Spain",
+          notes=c("Data from European Social Survey"), 
+          dep.var.labels=c("attitudes towards immigrants"), 
+          column.labels = c("2006", "2008","2010"),
+          type = "text",
+          align=TRUE)
+
+stargazer(list( mm_Spain2012, mm_Spain2014, mm_Spain2016, mm_Spain2018),
+          header=F,
+          keep.stat = c("n","adj.rsq"),
+          title="Multiple OLS Regression Model in Spain",
+          notes=c("Data from European Social Survey"), 
+          dep.var.labels=c("attitudes towards immigrants"), 
+          column.labels = c("2012", "2014", "2016", "2018"),
+          type = "text",
+          align=TRUE)
+
+stargazer(list(mm_Spain2006,mm_Spain2008,mm_Spain2010, mm_Spain2012, mm_Spain2014, mm_Spain2016, mm_Spain2018),
+          header=F,
+          keep.stat = c("n","adj.rsq"),
+          title="Multiple OLS Regression Model in Spain",
+          notes=c("Data from European Social Survey"), 
+          dep.var.labels=c("attitudes towards immigrants"), 
+          column.labels = c("2006", "2008","2010", "2012", "2014", "2016", "2018"),
+          type = "text",
+          align=TRUE)
+
+
+```
+
+```{r}
+library(devtools)
+library(jtools)
+library(broom.mixed)
+
+# plotting coefficients of models during financial crisis years:
+my_plot <- plot_summs(mm_Spain2006, mm_Spain2008, mm_Spain2010, scale = TRUE, model.names = c("2006", "2008", "2010"),  main = "Spain")
+
+ ggsave("Fig.5 plotting coefficients of models during financial crisis.png", my_plot, width=15, height=10)
+
+
+# plotting coefficients of models during migrant crisis years:
+my_plot <- plot_summs(mm_Spain2012, mm_Spain2014, mm_Spain2016, mm_Spain2018, scale = TRUE, model.names = c("2012", "2014", "2016", "2018"),  main = "Spain")
+
+ ggsave("Fig.6 plotting coefficients of models during migrant crisis.png", my_plot, width=15, height=10)
+
+```
+
+```{r,echo=FALSE,message=FALSE,warning=FALSE}
+# visualising predictions of Spain models during financial crisis:
+#2006
+pred_sp2006 <- seq(min(Spain2006$media_exposure),max(Spain2006$media_exposure),1)
+
+pred_sp2006_df <- data.frame(x=pred_sp2006,y=mm_Spain2006$coefficients[1]+ mm_Spain2006$coefficients[2]*pred_sp2006) %>% mutate(Model= "2006")
+
+ggplot(unique(Spain2006,by="mean_attitudes towards immigrants by Media Exposure"),aes(x=media_exposure,y=attitude_twrds_immigrants))+
+  geom_point(alpha=0.4, size=3,colour="red")+ scale_x_continuous(breaks = seq(1,8,1)) + scale_y_continuous(breaks = seq(0,10,1))+
+  labs(title = " attitudes towards immigrants by Media Exposure in Spain 2006",
+       subtitle = "Estimates from Multipale OLS Regression Model",
+       x = "Media Exposure",
+       y = "Mean of attitudes towards immigrants",
+       caption = "Data from European Social Survey")+
+  theme_classic()+
+  geom_line(data=pred_sp2012_df,aes(x=x,y=y),size=1,color="yellow")
+#2008
+pred_sp2008 <- seq(min(Spain2008$media_exposure),max(Spain2008$media_exposure),1)
+
+pred_sp2008_df <- data.frame(x=pred_sp2008,y=mm_Spain2008$coefficients[1]+ mm_Spain2008$coefficients[2]*pred_sp2008) %>% mutate(Model= "2008")
+
+ggplot(unique(Spain2008,by="mean_attitudes towards immigrants by Media Exposure"),aes(x=media_exposure,y=attitude_twrds_immigrants))+
+  geom_point(alpha=0.4, size=3,colour="red")+ scale_x_continuous(breaks = seq(1,8,1)) + scale_y_continuous(breaks = seq(0,10,1))+
+  labs(title = "Fig.2 attitudes towards immigrants by Media Exposure in Spain 2008",
+       subtitle = "Estimates from Multipale OLS Regression Model",
+       x = "Media Exposure",
+       y = "Mean of attitudes towards immigrants",
+       caption = "Data from European Social Survey")+
+  theme_classic()+
+  geom_line(data=pred_sp2014_df,aes(x=x,y=y),size=1,color="yellow")
+
+#Spain 2010
+pred_sp2010 <- seq(min(Spain2010$media_exposure),max(Spain2010$media_exposure),1)
+
+pred_sp2010_df <- data.frame(x=pred_sp2010,y=mm_Spain2010$coefficients[1]+ mm_Spain2010$coefficients[2]*pred_sp2010) %>% mutate(Model= "2010")
+
+ggplot(unique(Spain2010,by="mean_attitudes towards immigrants by Media Exposure"),aes(x=media_exposure,y=attitude_twrds_immigrants))+
+  geom_point(alpha=0.4, size=3,colour="red")+ scale_x_continuous(breaks = seq(1,8,1)) + scale_y_continuous(breaks = seq(0,10,1))+
+  labs(title = "Fig.3 attitudes towards immigrants by Media Exposure in Spain 2010",
+       subtitle = "Estimates from Multipale OLS Regression Model",
+       x = "Media Exposure",
+       y = "Mean of attitudes towards immigrants",
+       caption = "Data from European Social Survey")+
+  theme_classic()+
+  geom_line(data=pred_sp2016_df,aes(x=x,y=y),size=1,color="yellow")
+```
+```{r,echo=FALSE,message=FALSE,warning=FALSE}
+# visualising predictions of Spain models during migrant crisis:
+# 2012
+pred_sp2012 <- seq(min(Spain2012$media_exposure),max(Spain2012$media_exposure),1)
+
+pred_sp2012_df <- data.frame(x=pred_sp2012,y=mm_Spain2012$coefficients[1]+ mm_Spain2012$coefficients[2]*pred_sp2012) %>% mutate(Model= "2012")
+
+ggplot(unique(Spain2012,by="mean_attitudes towards immigrants by Media Exposure"),aes(x=media_exposure,y=attitude_twrds_immigrants))+
+  geom_point(alpha=0.4, size=3,colour="red")+ scale_x_continuous(breaks = seq(1,8,1)) + scale_y_continuous(breaks = seq(0,10,1))+
+  labs(title = " attitudes towards immigrants by Media Exposure in Spain 2012.",
+       subtitle = "Estimates from Multipale OLS Regression Model",
+       x = "Media Exposure",
+       y = "Mean of attitudes towards immigrants",
+       caption = "Data from European Social Survey")+
+  theme_classic()+
+  geom_line(data=pred_sp2012_df,aes(x=x,y=y),size=1,color="yellow")
+
+#Spain 2014
+pred_sp2014 <- seq(min(Spain2014$media_exposure),max(Spain2014$media_exposure),1)
+
+pred_sp2014_df <- data.frame(x=pred_sp2014,y=mm_Spain2014$coefficients[1]+ mm_Spain2014$coefficients[2]*pred_sp2014) %>% mutate(Model= "2014")
+
+ggplot(unique(Spain2014,by="mean_attitudes towards immigrants by Media Exposure"),aes(x=media_exposure,y=attitude_twrds_immigrants))+
+  geom_point(alpha=0.4, size=3,colour="red")+ scale_x_continuous(breaks = seq(1,8,1)) + scale_y_continuous(breaks = seq(0,10,1))+
+  labs(title = "Fig.2 attitudes towards immigrants by Media Exposure in Spain 2014.",
+       subtitle = "Estimates from Multipale OLS Regression Model",
+       x = "Media Exposure",
+       y = "Mean of attitudes towards immigrants",
+       caption = "Data from European Social Survey")+
+  theme_classic()+
+  geom_line(data=pred_sp2014_df,aes(x=x,y=y),size=1,color="yellow")
+
+#Spain 2016
+pred_sp2016 <- seq(min(Spain2016$media_exposure),max(Spain2016$media_exposure),1)
+
+pred_sp2016_df <- data.frame(x=pred_sp2016,y=mm_Spain2016$coefficients[1]+ mm_Spain2016$coefficients[2]*pred_sp2016) %>% mutate(Model= "2016")
+
+ggplot(unique(Spain2016,by="mean_attitudes towards immigrants by Media Exposure"),aes(x=media_exposure,y=attitude_twrds_immigrants))+
+  geom_point(alpha=0.4, size=3,colour="red")+ scale_x_continuous(breaks = seq(1,8,1)) + scale_y_continuous(breaks = seq(0,10,1))+
+  labs(title = "Fig.3 attitudes towards immigrants by Media Exposure in Spain 2016.",
+       subtitle = "Estimates from Multipale OLS Regression Model",
+       x = "Media Exposure",
+       y = "Mean of attitudes towards immigrants",
+       caption = "Data from European Social Survey")+
+  theme_classic()+
+  geom_line(data=pred_sp2016_df,aes(x=x,y=y),size=1,color="yellow")
+
+#Spain 2018
+pred_sp2018 <- seq(min(Spain2018$media_exposure),max(Spain2018$media_exposure),1)
+
+pred_sp2018_df <- data.frame(x=pred_sp2018,y=mm_Spain2018$coefficients[1]+ mm_Spain2018$coefficients[2]*pred_sp2018) %>% mutate(Model= "2018")
+
+ggplot(unique(Spain2018,by="mean_attitudes towards immigrants by Media Exposure"),aes(x=media_exposure,y=attitude_twrds_immigrants))+
+  geom_point(alpha=0.4, size=3,colour="red")+ scale_x_continuous(breaks = seq(1,8,1)) + scale_y_continuous(breaks = seq(0,10,1))+
+  labs(title = "Fig.4 attitudes towards immigrants by Media Exposure in Spain 2018.",
+       subtitle = "Estimates from Multipale OLS Regression Model",
+       x = "Media Exposure",
+       y = "Mean of attitudes towards immigrants",
+       caption = "Data from European Social Survey")+
+  theme_classic()+
+  geom_line(data=pred_sp2018_df,aes(x=x,y=y),size=1,color="yellow")
+```
+
+```{r,echo=FALSE,message=FALSE,warning=FALSE}
+library(gcookbook) 
+#Merging all prediction models of Spain (financial crisis)
+Spaindf_Line2 <- rbind(pred_sp2006_df,pred_sp2008_df,pred_sp2010_df)
+
+
+Spain_comb2 <- rbind(Spain2006,Spain2008,Spain2010)
+
+ggplot(unique(Spain_comb2,by="mean_attitudes_towards_immigrants_by_Media_Exposure"),aes(x=media_exposure,y=attitude_twrds_immigrants))+ 
+  scale_x_continuous(breaks = seq(1,8,1)) +
+  scale_y_continuous(breaks = seq(0,10,1))+
+  scale_linetype(labels=c("2006","2008","2010")) +
+  labs(title = "Fig.6 attitudes towards immigrants by Media Exposure in Spain",
+       subtitle = "Estimates from Multipale OLS Regression Model- financial crisis",
+       x = "Media Exposure",
+       y = "Mean of attitudes towards immigrants",
+       caption = "Data from European Social Survey")+
+  theme_classic()+
+  geom_line(data=Spaindf_Line2,aes(x=x,y=y, fill=Model,color=Model, linetype = Model ),size=1, alpha = 0.7) +
+    scale_color_manual(values=c("red", "blue", "yellow", "green"))
+
+ ggsave("Fig.6 prediction of models during financial crisis.png", my_plot, width=15, height=10)
+
+#Merging all prediction models of Spain (migrant crisis)
+Spaindf_Line <- rbind(pred_sp2012_df,pred_sp2014_df,pred_sp2016_df, pred_sp2018_df)
+
+
+Spain_comb <- rbind(Spain2012,Spain2014,Spain2016, Spain2018)
+
+ ggplot(unique(Spain_comb,by="mean_attitudes_towards_immigrants_by_Media_Exposure"),aes(x=media_exposure,y=attitude_twrds_immigrants))+ 
+  scale_x_continuous(breaks = seq(1,8,1)) +
+  scale_y_continuous(breaks = seq(0,10,1))+
+  scale_linetype(labels=c("2012","2014","2016", "2018")) +
+  labs(title = "Fig.7 attitudes towards immigrants by Media Exposure in Spain",
+       subtitle = "Estimates from Multipale OLS Regression Model- migrant crisis",
+       x = "Media Exposure",
+       y = "Mean of attitudes towards immigrants",
+       caption = "Data from European Social Survey")+
+  theme_classic()+
+  geom_line(data=Spaindf_Line,aes(x=x,y=y, fill=Model,color=Model, linetype = Model ),size=1, alpha = 0.7) +
+    scale_color_manual(values=c("red", "blue", "yellow", "green"))
+
+ ggsave("Fig.7 prediction of models during migrant crisis.png", my_plot, width=15, height=10)
+
+```
+
+
+```{r,echo=FALSE,message=FALSE,warning=FALSE}
+# plot the residuals (financial crisis)
+
+#Spain 2006
+resid_sp_2006 <- 
+  data.frame(pred= mm_Spain2006$fitted.values,resid=mm_Spain2006$residuals) %>% mutate(residuals = "2006")
+
+ggplot(resid_sp_2006,aes(x=pred,y=resid)) + 
+  geom_point(na.rm = TRUE,colour = " light blue") +
+  stat_smooth(method = 'lm') + theme_bw() +
+  labs(title = "Residual Analysis of Spain 2006",
+       subtitle = "Estimates from Multipale OLS Regression Model",
+       x = "Fitted Values",
+       y = "Residuals",
+       caption = "Data from ESS")
+
+#Spain 2008
+resid_sp_2008 <- 
+  data.frame(pred= mm_Spain2008$fitted.values,resid=mm_Spain2008$residuals) %>% mutate(residuals = "2008")
+
+ggplot(resid_sp_2008,aes(x=pred,y=resid)) + 
+  geom_point(na.rm = TRUE,colour = " light blue") +
+  stat_smooth(method = 'lm') + theme_bw() +
+  labs(title = " Residual Analysis of Spain 2008",
+       subtitle = "Estimates from Multipale OLS Regression Model",
+       x = "Fitted Values",
+       y = "Residuals",
+       caption = "Data from ESS")
+
+#Spain 2010
+resid_sp_2010 <- 
+  data.frame(pred= mm_Spain2010$fitted.values,resid=mm_Spain2010$residuals) %>% mutate(residuals = "2010")
+
+ggplot(resid_sp_2010,aes(x=pred,y=resid)) + 
+  geom_point(na.rm = TRUE,colour = " light blue") +
+  stat_smooth(method = 'lm') + theme_bw() +
+  labs(title = "Residual Analysis of Spain 2010",
+       subtitle = "Estimates from Multipale OLS Regression Model",
+       x = "Fitted Values",
+       y = "Residuals",
+       caption = "Data from ESS")
+
+# plot the residuals (migrant crisis)
+
+#Spain 2012
+resid_sp_2012 <- 
+  data.frame(pred= mm_Spain2012$fitted.values,resid=mm_Spain2012$residuals) %>% mutate(residuals = "2012")
+
+ggplot(resid_sp_2012,aes(x=pred,y=resid)) + 
+  geom_point(na.rm = TRUE,colour = " light blue") +
+  stat_smooth(method = 'lm') + theme_bw() +
+  labs(title = "Fig.16 Residual Analysis of Spain 2012",
+       subtitle = "Estimates from Multipale OLS Regression Model",
+       x = "Fitted Values",
+       y = "Residuals",
+       caption = "Data from ESS")
+
+#Spain 2014
+resid_sp_2014 <- 
+  data.frame(pred= mm_Spain2014$fitted.values,resid=mm_Spain2014$residuals) %>% mutate(residuals = "2014")
+
+ggplot(resid_sp_2014,aes(x=pred,y=resid)) + 
+  geom_point(na.rm = TRUE,colour = " light blue") +
+  stat_smooth(method = 'lm') + theme_bw() +
+  labs(title = "Fig.16 Residual Analysis of Spain 2014",
+       subtitle = "Estimates from Multipale OLS Regression Model",
+       x = "Fitted Values",
+       y = "Residuals",
+       caption = "Data from ESS")
+
+#Spain 2016
+resid_sp_2016 <- 
+  data.frame(pred= mm_Spain2016$fitted.values,resid=mm_Spain2016$residuals) %>% mutate(residuals = "2016")
+
+ggplot(resid_sp_2016,aes(x=pred,y=resid)) + 
+  geom_point(na.rm = TRUE,colour = " light blue") +
+  stat_smooth(method = 'lm') + theme_bw() +
+  labs(title = "Fig.16 Residual Analysis of Spain 2016",
+       subtitle = "Estimates from Multipale OLS Regression Model",
+       x = "Fitted Values",
+       y = "Residuals",
+       caption = "Data from ESS")
+
+#Spain 2018
+resid_sp_2018 <- 
+  data.frame(pred= mm_Spain2018$fitted.values,resid=mm_Spain2018$residuals) %>% mutate(residuals = "2018")
+
+ggplot(resid_sp_2018,aes(x=pred,y=resid)) + 
+  geom_point(na.rm = TRUE,colour = " light blue") +
+  stat_smooth(method = 'lm') + theme_bw() +
+  labs(title = "Fig.16 Residual Analysis of Spain 2018",
+       subtitle = "Estimates from Multipale OLS Regression Model",
+       x = "Fitted Values",
+       y = "Residuals",
+       caption = "Data from ESS")
+
+
+######
+#Merge all 
+Resid_sp <- rbind(resid_sp_2006,resid_sp_2008,resid_sp_2010)
+plot1 <- ggplot(Resid_sp,aes(x=pred,y=resid)) + geom_point(na.rm = TRUE,colour = "grey") +
+  stat_smooth(method = 'lm') + theme_bw()+ facet_wrap(~ residuals)+
+  labs(title = "Residual Analysis of Spain",
+       subtitle = "Estimates from Multipale OLS Regression Model",
+       x = "Fitted Values",
+       y = "Residuals",
+       caption = "ESS Data")
+
+ ggsave("Fig.8 residual analysis during financial crisis.png", plot1, width=15, height=10)
+
+Resid_sp2 <- rbind(resid_sp_2012,resid_sp_2014,resid_sp_2016, resid_sp_2018)
+plot2 <- ggplot(Resid_sp2,aes(x=pred,y=resid)) + geom_point(na.rm = TRUE,colour = "grey") +
+  stat_smooth(method = 'lm') + theme_bw()+ facet_wrap(~ residuals)+
+  labs(title = "Residual Analysis of Spain",
+       subtitle = "Estimates from Multipale OLS Regression Model",
+       x = "Fitted Values",
+       y = "Residuals",
+       caption = "ESS Data")
+
+ ggsave("Fig.9 residual analysis during migrant crisis.png", plot2, width=15, height=10)
+
+####################
+
+
+```
+
+```{r}
+## interaction between the high_govsatisfied and news exposure in 2016 and 2018
+## 2010
+model_2010 <-  lm(attitude_twrds_immigrants  ~ media_exposure*high_trustinparlimant  , weights = dweight, data = Spain2010)
+pred_data_10 <- expand.grid(media_exposure=seq(min(Spain2010$media_exposure),max(Spain2010$media_exposure),1), high_trustinparlimant = as.integer(c(0:10)))
+pred_data_10$preds <- predict(model_2010,newdata=pred_data_10) 
+pred_data_10 <- pred_data_10 %>% mutate(country = "Spain 2010")
+
+
+model_2016 <-  lm(attitude_twrds_immigrants  ~  media_exposure*high_trustinparlimant, weights = dweight, data = Spain2016)
+pred_data_16 <- expand.grid(media_exposure=seq(min(Spain2016$media_exposure),max(Spain2016$media_exposure),1), high_trustinparlimant = as.factor(c("FALSE","TRUE")))
+
+pred_data_16$preds <- predict(model_2016,newdata=pred_data_16) 
+pred_data_16 <- pred_data_16 %>% mutate(country = "Spain 2016")
+
+
+stargazer(model_2010,model_2016, title="Simple OLS Regression Model Between high_trustinparlimant and Media Exposure", header = FALSE,
+dep.var.labels=c("Attitudes towards immigrants"),
+column.labels = c("Spain 2010","Spain 2016"), type = "text")
+
+#plot the prediction  2010-2016
+
+# Spain 2010
+ggplot(pred_data_10,aes(media_exposure,preds,group=high_trustinparlimant,
+color=high_trustinparlimant))+ geom_line(size=2)+theme_bw() +
+  scale_x_continuous(breaks = seq(1,8,1)) +
+  labs(title = "Fig.8 high_trustinparlimant and Media Exposure Interaction \n on attitudes towards immigrants in Spain 2010",
+       subtitle = "Estimates from Simple OLS Regression Model\nDependent variable on 10-point-scale ",
+       y = "Pred. on outcome variable's scale",
+       x = " Media Exposure scale (1-8)",
+       caption = "Data from ESS",
+       colour = "high_trustinparlimant",
+       fill = "high_trustinparlimant")
+
+# Spain 2016
+ggplot(pred_data_16,aes(media_exposure,preds,group=high_trustinparlimant,
+color=high_trustinparlimant))+ geom_line(size=2)+theme_bw() +
+  scale_x_continuous(breaks = seq(1,8,1)) +
+  labs(title = "Fig.9 Interaction of high_trustinparlimant and Media Exposure \n on attitudes towards immigrants- Spain 2016",
+       subtitle = "Estimates from Simple OLS Regression Model\nDependent variable on 10-point-scale ",
+       y = "Pred. on outcome variable's scale",
+       x = " Media Exposure scale (1-8)",
+       caption = "ESS Data",
+       colour = "high_trustinparlimant",
+       fill = "high_trustinparlimant")
+
+#Merge all
+common_cols <- intersect(colnames(pred_data_10), colnames(pred_data_16))
+
+df_Line <- rbind(subset(pred_data_10, select = common_cols), 
+  subset(pred_data_16, select = common_cols))
+
+ggplot(df_Line,aes(media_exposure,preds,group=high_trustinparlimant,
+color=high_trustinparlimant))+ geom_line(size=2)+theme_bw() + facet_wrap( ~ country)+
+  scale_x_continuous(breaks = seq(1,8,1)) +
+  labs(title = "Fig.10 high_trustinparlimant and Media Exposure Interaction \n on attitudes towards Immigrant in Spain 2010 & 2016",
+       subtitle = "Estimates from Simple OLS Regression Model\nDependent variable on 10-point-scale",
+       y = "Pred. on outcome variable's scale",
+       x = "Media Exposure scale (1-8)",
+       caption = "ESS Data",
+       colour = "high_trustinparlimant",
+       fill = "high_trustinparlimant")
+```
+
